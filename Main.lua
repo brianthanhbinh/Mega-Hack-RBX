@@ -1,162 +1,158 @@
--- V64: ORBIT DISTANCE LOCK (PREVENTS FLING)
+-- V82: FIXED BUTTON LOGIC + CRASH PROOF PHYSICS
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 
-local floatActive = false
-local tornadoAll = false
-local tornadoTouch = false
+local lp = game.Players.LocalPlayer
+local tornadoActive, ringActive, shieldActive, floatActive = false, false, false, false
 local platforms = {}
+local shieldPart = nil
 
--- 1. UI SETUP
-local parent = CoreGui:FindFirstChild("RobloxGui") or CoreGui
-if parent:FindFirstChild("VortexSafe") then parent.VortexSafe:Destroy() end
+-- 1. KILL SWITCH
+local function stopAll()
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") and not v.Anchored and not v:IsDescendantOf(lp.Character) then
+            v.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            v.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        end
+    end
+end
 
-local sg = Instance.new("ScreenGui", parent)
-sg.Name = "VortexSafe"
-
+-- 2. UI ROOT
+local sg = Instance.new("ScreenGui", CoreGui:FindFirstChild("RobloxGui") or CoreGui); sg.Name = "VortexV42"
 local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 260, 0, 520)
-main.Position = UDim2.new(0.8, -270, 0.3, 0)
-main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-main.BorderSizePixel = 0
+main.Size = UDim2.new(0, 280, 0, 520); main.Position = UDim2.new(0.5, -140, 0.2, 0)
+main.BackgroundColor3 = Color3.fromRGB(10, 10, 15); main.BorderSizePixel = 0
 Instance.new("UICorner", main)
 
-local header = Instance.new("Frame", main)
-header.Size = UDim2.new(1, 0, 0, 35); header.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-Instance.new("UICorner", header)
+local head = Instance.new("Frame", main); head.Size = UDim2.new(1, 0, 0, 35); head.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+Instance.new("UICorner", head)
+local close = Instance.new("TextButton", head); close.Size = UDim2.new(0, 30, 0, 30); close.Position = UDim2.new(1, -32, 0, 2); close.Text = "×"; close.BackgroundColor3 = Color3.fromRGB(180, 0, 0); close.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", close)
 
-local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1, -40, 1, 0); title.Position = UDim2.new(0, 10, 0, 0)
-title.Text = "VORTEX V24: SAFE-ZONE"; title.TextColor3 = Color3.new(1,1,1)
-title.BackgroundTransparency = 1; title.Font = "GothamBold"; title.TextXAlignment = "Left"
+-- Tabs
+local tBar = Instance.new("Frame", main); tBar.Size = UDim2.new(1, 0, 0, 30); tBar.Position = UDim2.new(0,0,0,35); tBar.BackgroundColor3 = Color3.fromRGB(20,20,20)
+local function mTab(nm, x, w)
+    local b = Instance.new("TextButton", tBar); b.Size = UDim2.new(w, 0, 1, 0); b.Position = UDim2.new(x, 0, 0, 0)
+    b.Text = nm; b.BackgroundColor3 = Color3.fromRGB(25,25,30); b.TextColor3 = Color3.new(1,1,1); b.Font = "GothamBold"; b.TextSize = 8; return b
+end
+local tS = mTab("STORM", 0, 0.25); local tR = mTab("RING", 0.25, 0.25); local tSh = mTab("SHIELD", 0.5, 0.25); local tO = mTab("OTHER", 0.75, 0.25)
 
-local close = Instance.new("TextButton", header)
-close.Size = UDim2.new(0, 30, 0, 30); close.Position = UDim2.new(1, -32, 0, 2)
-close.Text = "×"; close.TextColor3 = Color3.new(1, 1, 1); close.BackgroundColor3 = Color3.fromRGB(200, 40, 40); Instance.new("UICorner", close)
+local function mPage()
+    local p = Instance.new("ScrollingFrame", main); p.Size = UDim2.new(1,-20,1,-75); p.Position = UDim2.new(0,10,0,70)
+    p.BackgroundTransparency = 1; p.ScrollBarThickness = 2; p.AutomaticCanvasSize = "Y"; Instance.new("UIListLayout", p).Padding = UDim.new(0,5); return p
+end
+local pS, pR, pSh, pO = mPage(), mPage(), mPage(), mPage(); pR.Visible, pSh.Visible, pO.Visible = false, false, false
 
--- Buttons
-local function createBtn(text, pos, color)
-    local btn = Instance.new("TextButton", main)
-    btn.Size = UDim2.new(0, 240, 0, 40); btn.Position = pos
-    btn.Text = text; btn.BackgroundColor3 = color; btn.TextColor3 = Color3.new(1,1,1)
-    btn.Font = "GothamBold"; btn.TextSize = 11; Instance.new("UICorner", btn)
-    return btn
+tS.MouseButton1Click:Connect(function() pS.Visible, pR.Visible, pSh.Visible, pO.Visible = true, false, false, false end)
+tR.MouseButton1Click:Connect(function() pS.Visible, pR.Visible, pSh.Visible, pO.Visible = false, true, false, false end)
+tSh.MouseButton1Click:Connect(function() pS.Visible, pR.Visible, pSh.Visible, pO.Visible = false, false, true, false end)
+tO.MouseButton1Click:Connect(function() pS.Visible, pR.Visible, pSh.Visible, pO.Visible = false, false, false, true end)
+
+-- Helpers
+local function uBtn(txt, prnt, clr)
+    local b = Instance.new("TextButton", prnt); b.Size = UDim2.new(1, 0, 0, 35); b.BackgroundColor3 = clr; b.Text = txt; b.TextColor3 = Color3.new(1,1,1); b.Font = "GothamBold"; Instance.new("UICorner", b); return b
+end
+local function uInp(txt, prnt, def)
+    local f = Instance.new("Frame", prnt); f.Size = UDim2.new(1, 0, 0, 30); f.BackgroundTransparency = 1
+    local l = Instance.new("TextLabel", f); l.Size = UDim2.new(0.6, 0, 1, 0); l.Text = txt; l.TextColor3 = Color3.new(0.7,0.7,0.7); l.BackgroundTransparency = 1; l.TextXAlignment = "Left"
+    local b = Instance.new("TextBox", f); b.Size = UDim2.new(0.35, 0, 0.8, 0); b.Position = UDim2.new(0.65, 0, 0.1, 0); b.Text = tostring(def); b.BackgroundColor3 = Color3.fromRGB(30,30,30); b.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", b); return b
 end
 
-local btnChaos = createBtn("MAP CHAOS (UNANCHOR)", UDim2.new(0, 10, 0, 45), Color3.fromRGB(120, 0, 0))
-local btnTornadoAll = createBtn("TORNADO: ALL IN RANGE (OFF)", UDim2.new(0, 10, 0, 95), Color3.fromRGB(60, 0, 120))
-local btnTornadoTouch = createBtn("TORNADO: ONLY TOUCHED (OFF)", UDim2.new(0, 10, 0, 145), Color3.fromRGB(45, 45, 45))
-local btnFloat = createBtn("FLOAT PLATFORM: OFF [T]", UDim2.new(0, 10, 0, 195), Color3.fromRGB(30, 30, 30))
+-- Settings
+local bS = uBtn("STORM: OFF", pS, Color3.fromRGB(80, 0, 180))
+local sRange = uInp("Search Range", pS, 1000)
+local sLays = uInp("Layer Count", pS, 5)
+local sY = uInp("Starting Y", pS, 20)
+local sVGap = uInp("Layer Height (Y)", pS, 15)
+local sHGap = uInp("Layer Width (X)", pS, 10)
+local sSafe = uInp("Safe Distance", pS, 35)
+local sSpd = uInp("Spin Speed", pS, 180)
 
--- Inputs
-local function createInput(name, pos, default)
-    local lbl = Instance.new("TextLabel", main); lbl.Size = UDim2.new(0, 150, 0, 20); lbl.Position = pos
-    lbl.Text = name; lbl.TextColor3 = Color3.new(0.8,0.8,0.8); lbl.BackgroundTransparency = 1; lbl.Font = "Gotham"
-    local box = Instance.new("TextBox", main); box.Size = UDim2.new(0, 70, 0, 22); box.Position = pos + UDim2.new(0, 170, 0, 0)
-    box.Text = tostring(default); box.BackgroundColor3 = Color3.fromRGB(30,30,30); box.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", box)
-    return box
+local bR = uBtn("SATURN: OFF", pR, Color3.fromRGB(0, 100, 200))
+local rRange = uInp("Search Range", pR, 800)
+local rCount = uInp("Ring Count", pR, 4)
+local rSafe = uInp("Safe Distance", pR, 45)
+local rGap = uInp("Ring Spacing", pR, 20)
+local rShrink = uInp("Shrink Per Ring", pR, 5)
+local rSpd = uInp("Orbit Speed", pR, 120)
+
+local bSh = uBtn("PUSH SHIELD: OFF", pSh, Color3.fromRGB(180, 80, 0))
+local shRange = uInp("Shield Range", pSh, 50)
+local shForce = uInp("Push Force", pSh, 300)
+local bVis = uBtn("VISIBILITY: OFF", pSh, Color3.fromRGB(50, 50, 50))
+
+local bFloat = uBtn("FLOAT PAD: OFF", pO, Color3.fromRGB(40, 40, 40))
+local bUnanchor = uBtn("UNANCHOR MAP", pO, Color3.fromRGB(120, 0, 0))
+
+-- 3. TOGGLE REPAIR (FIXED CLICK LOGIC)
+local function updateButtons()
+    bS.Text = "STORM: "..(tornadoActive and "ON" or "OFF")
+    bR.Text = "SATURN: "..(ringActive and "ON" or "OFF")
+    bSh.Text = "PUSH SHIELD: "..(shieldActive and "ON" or "OFF")
+    bFloat.Text = "FLOAT PAD: "..(floatActive and "ON" or "OFF")
 end
 
-local inPullRange = createInput("Pull Range", UDim2.new(0, 10, 0, 250), 1000)
-local inSpeed = createInput("Orbit Speed", UDim2.new(0, 10, 0, 285), 160)
-local inOrbitDist = createInput("SAFE DISTANCE", UDim2.new(0, 10, 0, 320), 25) -- Keeps parts away
-local inLift = createInput("Lift Force", UDim2.new(0, 10, 0, 355), 40)
-
--- 2. LOGIC
-btnChaos.MouseButton1Click:Connect(function()
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v:IsA("BasePart") and not v:IsDescendantOf(game.Players.LocalPlayer.Character) then
-            v.Anchored = false; v.AssemblyLinearVelocity = Vector3.new(0, 10, 0)
-        end
-    end
+bS.MouseButton1Click:Connect(function() 
+    tornadoActive = not tornadoActive
+    if tornadoActive then ringActive = false; shieldActive = false end
+    stopAll(); updateButtons()
 end)
 
-btnTornadoAll.MouseButton1Click:Connect(function()
-    tornadoAll = not tornadoAll
-    btnTornadoAll.Text = "TORNADO: ALL (" .. (tornadoAll and "ON" or "OFF") .. ")"
-    btnTornadoAll.BackgroundColor3 = tornadoAll and Color3.fromRGB(150, 0, 255) or Color3.fromRGB(60, 0, 120)
+bR.MouseButton1Click:Connect(function() 
+    ringActive = not ringActive
+    if ringActive then tornadoActive = false; shieldActive = false end
+    stopAll(); updateButtons()
 end)
 
-btnTornadoTouch.MouseButton1Click:Connect(function()
-    tornadoTouch = not tornadoTouch
-    btnTornadoTouch.Text = "TORNADO: TOUCH (" .. (tornadoTouch and "ON" or "OFF") .. ")"
-    btnTornadoTouch.BackgroundColor3 = tornadoTouch and Color3.fromRGB(0, 100, 255) or Color3.fromRGB(45, 45, 45)
+bSh.MouseButton1Click:Connect(function() 
+    shieldActive = not shieldActive
+    if shieldActive then tornadoActive = false; ringActive = false end
+    stopAll(); updateButtons()
 end)
 
-btnFloat.MouseButton1Click:Connect(function()
-    floatActive = not floatActive
-    btnFloat.Text = "FLOAT PLATFORM: " .. (floatActive and "ON" or "OFF")
-    btnFloat.BackgroundColor3 = floatActive and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(30, 30, 30)
-    if not floatActive then for _,v in pairs(platforms) do v:Destroy() end platforms = {} end
+bVis.MouseButton1Click:Connect(function() 
+    if shieldPart then shieldPart:Destroy(); shieldPart = nil; bVis.Text = "VISIBILITY: OFF" 
+    else shieldPart = Instance.new("Part", workspace); shieldPart.Shape = "Ball"; shieldPart.Anchored = true; shieldPart.CanCollide = false; shieldPart.Material = "ForceField"; shieldPart.Transparency = 0.5; bVis.Text = "VISIBILITY: ON" end 
 end)
 
-close.MouseButton1Click:Connect(function() 
-    floatActive = false; tornadoAll = false; tornadoTouch = false
-    for _,v in pairs(platforms) do v:Destroy() end sg:Destroy() 
-end)
+bFloat.MouseButton1Click:Connect(function() floatActive = not floatActive; updateButtons() end)
+bUnanchor.MouseButton1Click:Connect(function() for _,v in pairs(workspace:GetDescendants()) do if v:IsA("BasePart") and not v:IsDescendantOf(lp.Character) then v.Anchored = false end end end)
+close.MouseButton1Click:Connect(function() stopAll(); if shieldPart then shieldPart:Destroy() end if platforms["Pad"] then platforms["Pad"]:Destroy() end sg:Destroy() end)
 
--- 3. PHYSICS LOOP
+-- 4. PHYSICS ENGINE
 RunService.Heartbeat:Connect(function()
-    local lp = game.Players.LocalPlayer
-    if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = lp.Character.HumanoidRootPart
-    local center = hrp.Position
+    local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    if shieldPart then shieldPart.Position = hrp.Position; shieldPart.Size = Vector3.new(1,1,1) * (tonumber(shRange.Text) or 50) * 2 end
+    if floatActive then local p = platforms["Pad"] or Instance.new("Part", workspace); p.Size = Vector3.new(25, 1, 25); p.Anchored = true; p.Transparency = 0.5; p.CFrame = hrp.CFrame * CFrame.new(0,-3.55,0); platforms["Pad"] = p else if platforms["Pad"] then platforms["Pad"]:Destroy(); platforms["Pad"] = nil end end
 
-    if floatActive then
-        local pad = platforms["MyPad"]
-        if not pad or not pad.Parent then
-            pad = Instance.new("Part", workspace); pad.Size = Vector3.new(22, 1, 22); pad.Anchored = true
-            pad.Transparency = 0.5; pad.Color = Color3.fromRGB(0, 255, 200); platforms["MyPad"] = pad
-        end
-        pad.CFrame = hrp.CFrame * CFrame.new(0, -3.5, 0)
-    end
-
-    if tornadoAll or tornadoTouch then
-        local pRange = tonumber(inPullRange.Text) or 1000
-        local speed = tonumber(inSpeed.Text) or 160
-        local safeDist = tonumber(inOrbitDist.Text) or 25
-        local lift = tonumber(inLift.Text) or 40
-
-        for _, part in pairs(workspace:GetDescendants()) do
-            if part:IsA("BasePart") and not part.Anchored and not part:IsDescendantOf(lp.Character) then
-                local offset = part.Position - center
-                local dist = offset.Magnitude
-                local doOrbit = false
-
-                if tornadoTouch then
-                    local touching = part:GetTouchingParts()
-                    for _, t in pairs(touching) do
-                        if (platforms["MyPad"] and t == platforms["MyPad"]) or t:IsDescendantOf(lp.Character) then
-                            doOrbit = true; break
-                        end
-                    end
-                elseif dist < pRange then
-                    doOrbit = true
-                end
-
-                if doOrbit then
-                    -- THE ANTI-FLING FIX
-                    local radialForce = 0
-                    if dist > safeDist + 5 then
-                        radialForce = -50 -- Too far? Pull in.
-                    elseif dist < safeDist - 5 then
-                        radialForce = 80 -- Too close? Push away to avoid fling!
-                    end
-
-                    local orbitDir = Vector3.new(offset.Z, 0, -offset.X).Unit
-                    part.AssemblyLinearVelocity = (orbitDir * speed) + (offset.Unit * radialForce) + Vector3.new(0, lift, 0)
+    if tornadoActive or ringActive or shieldActive then
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and not v.Anchored and not v:IsDescendantOf(lp.Character) then
+                local off = v.Position - hrp.Position; local dist = off.Magnitude
+                
+                if shieldActive and dist < (tonumber(shRange.Text) or 50) then
+                    v.AssemblyLinearVelocity = off.Unit * (tonumber(shForce.Text) or 300)
+                elseif tornadoActive and dist < (tonumber(sRange.Text) or 1000) then
+                    local lIdx = (v.Name:len() % (tonumber(sLays.Text) or 5)) -- Stable indexing
+                    local tH = hrp.Position.Y + (tonumber(sY.Text) or 20) + (lIdx * (tonumber(sVGap.Text) or 15))
+                    local tD = (tonumber(sSafe.Text) or 35) + (lIdx * (tonumber(sHGap.Text) or 10))
+                    local rad = (dist > tD + 2) and -70 or (dist < tD - 2) and 90 or 0
+                    v.AssemblyLinearVelocity = (Vector3.new(off.Z, 0, -off.X).Unit * (tonumber(sSpd.Text) or 180)) + (off.Unit * rad) + Vector3.new(0, (tH - v.Position.Y) * 15, 0)
+                elseif ringActive and dist < (tonumber(rRange.Text) or 800) then
+                    local rIdx = (v.Name:len() % (tonumber(rCount.Text) or 4))
+                    local tD = (tonumber(rSafe.Text) or 45) + (rIdx * (tonumber(rGap.Text) or 20)) - (rIdx * (tonumber(rShrink.Text) or 5))
+                    local rad = (dist > tD + 2) and -70 or (dist < tD - 2) and 90 or 0
+                    v.AssemblyLinearVelocity = (Vector3.new(off.Z, 0, -off.X).Unit * (tonumber(rSpd.Text) or 120)) + (off.Unit * rad) + Vector3.new(0, (hrp.Position.Y - v.Position.Y) * 15, 0)
                 end
             end
         end
     end
 end)
 
--- Draggable UI Logic
-UIS.InputBegan:Connect(function(k, g) if not g and k.KeyCode == Enum.KeyCode.T then btnFloat.MouseButton1Click:Fire() end end)
-local d, di, ds, sp
-header.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then d = true; ds = i.Position; sp = main.Position i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then d = false end end) end end)
-header.InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement then di = i end end)
-RunService.RenderStepped:Connect(function() if d and di then local dl = di.Position - ds; main.Position = UDim2.new(sp.X.Scale, sp.X.Offset + dl.X, sp.Y.Scale, sp.Y.Offset + dl.Y) end end)
+-- Dragging
+local drag, dPoint, startPos
+head.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then drag = true; dPoint = i.Position; startPos = main.Position end end)
+UIS.InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement and drag then local delta = i.Position - dPoint; main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
+UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then drag = false end end)
