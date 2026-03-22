@@ -172,7 +172,7 @@ RS.Stepped:Connect(function()
     if _G.showshield then
         local v = workspace:FindFirstChild("VortexShieldVis") or Instance.new("Part", workspace)
         v.Name = "VortexShieldVis"; v.Shape = "Ball"; v.Material = "ForceField"; v.Color = Color3.new(1,0,0); v.Transparency = 0.7; v.Anchored = true; v.CanCollide = false
-        local d = tonumber(shDist.Text) or 50
+        local d = tonumber(shDist.Text)
         v.Size = Vector3.new(d*2, d*2, d*2); v.CFrame = h.CFrame
     else
         if workspace:FindFirstChild("VortexShieldVis") then workspace.VortexShieldVis:Destroy() end
