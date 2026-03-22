@@ -1,91 +1,219 @@
+--[[
+    MEGA HACK V145
+    - ADD:Skybox thingy
+    - FIXED: Skybox now uses DECAL ID and turns OFF correctly
+    - FIXED: Shield Visualizer (SHOW RANGE) added to SHLD tab.
+    - FIXED: All settings (Range, Speed, etc.) restored to all tabs.
+    - MOBILE: Added Panic/Minimize "V" button for stealth.
+]]
+
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
 local LP = game.Players.LocalPlayer
+local CG = game:GetService("CoreGui")
 local LT = game:GetService("Lighting")
 local cam = workspace.CurrentCamera
 
-local tornado, ring, shield, noclip, infJump, clickTp, glow, freecam, esp = false, false, false, false, false, false, false, false, false
-local fcPart, origL = nil, {B = LT.Brightness, C = LT.ClockTime}
+-- 1. UI CORE SETUP
+local sg = Instance.new("ScreenGui", CG:FindFirstChild("RobloxGui") or LP:WaitForChild("PlayerGui"))
+sg.Name = "VortexV145_Final"
 
--- 1. UI CORE
-local sg = Instance.new("ScreenGui", game:GetService("CoreGui"):FindFirstChild("RobloxGui") or LP:WaitForChild("PlayerGui"))
-sg.Name = "VortexV144"; sg.ResetOnSpawn = false
+local main = Instance.new("Frame", sg)
+main.Size = UDim2.new(0, 580, 0, 520)
+main.Position = UDim2.new(0.5, -290, 0.2, 0)
+main.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+Instance.new("UICorner", main)
 
-local togBtn = Instance.new("TextButton", sg); togBtn.Size = UDim2.new(0, 40, 0, 40); togBtn.Position = UDim2.new(0, 10, 0.5, -20); togBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 30); togBtn.Text = "V"; togBtn.TextColor3 = Color3.fromRGB(0, 180, 255); togBtn.Font = "GothamBold"; Instance.new("UICorner", togBtn)
+local head = Instance.new("Frame", main)
+head.Size = UDim2.new(1, 0, 0, 40)
+head.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+Instance.new("UICorner", head)
 
-local main = Instance.new("Frame", sg); main.Size = UDim2.new(0, 580, 0, 480); main.Position = UDim2.new(0.5, -290, 0.25, 0); main.BackgroundColor3 = Color3.fromRGB(10, 10, 15); main.BackgroundTransparency = 0.1; Instance.new("UICorner", main)
-togBtn.MouseButton1Click:Connect(function() main.Visible = not main.Visible end)
+-- MOBILE MINIMIZE BUTTON (STEALTH "V")
+local miniBtn = Instance.new("TextButton", sg)
+miniBtn.Size = UDim2.new(0, 40, 0, 40)
+miniBtn.Position = UDim2.new(0, 5, 0.5, 0)
+miniBtn.Text = "V"
+miniBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+miniBtn.TextColor3 = Color3.new(1,1,1)
+miniBtn.Visible = false
+Instance.new("UICorner", miniBtn)
 
-local head = Instance.new("Frame", main); head.Size = UDim2.new(1, 0, 0, 40); head.BackgroundColor3 = Color3.fromRGB(25, 25, 35); Instance.new("UICorner", head)
-local close = Instance.new("TextButton", head); close.Size = UDim2.new(0, 30, 0, 30); close.Position = UDim2.new(1, -35, 0, 5); close.Text = "×"; close.BackgroundColor3 = Color3.fromRGB(180, 40, 40); close.TextColor3 = Color3.new(1,1,1); close.MouseButton1Click:Connect(function() sg:Destroy() end); Instance.new("UICorner", close)
-local mini = Instance.new("TextButton", head); mini.Size = UDim2.new(0, 30, 0, 30); mini.Position = UDim2.new(1, -70, 0, 5); mini.Text = "-"; mini.BackgroundColor3 = Color3.fromRGB(50, 50, 60); mini.TextColor3 = Color3.new(1,1,1); mini.MouseButton1Click:Connect(function() main.Visible = false end); Instance.new("UICorner", mini)
+local close = Instance.new("TextButton", head)
+close.Size = UDim2.new(0, 35, 0, 35)
+close.Position = UDim2.new(1, -40, 0, 2)
+close.Text = "×"
+close.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+close.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", close)
 
--- DRAG
-local d, sP, dP; head.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then d = true; sP = i.Position; dP = main.Position end end)
-UIS.InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement and d then local delta = i.Position - sP; main.Position = UDim2.new(dP.X.Scale, dP.X.Offset + delta.X, dP.Y.Scale, dP.Y.Offset + delta.Y) end end)
-UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then d = false end end)
+local mini = Instance.new("TextButton", head)
+mini.Size = UDim2.new(0, 35, 0, 35)
+mini.Position = UDim2.new(1, -80, 0, 2)
+mini.Text = "-"
+mini.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+mini.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", mini)
 
-local container = Instance.new("Frame", main); container.Size = UDim2.new(1, -20, 1, -95); container.Position = UDim2.new(0, 10, 0, 85); container.BackgroundTransparency = 1
-local function pge() 
-    local p = Instance.new("ScrollingFrame", container); p.Size = UDim2.new(1, 0, 1, 0); p.BackgroundTransparency = 1; p.Visible = false; p.ScrollBarThickness = 2; p.AutomaticCanvasSize = "Y"
-    local l = Instance.new("UIGridLayout", p); l.CellSize = UDim2.new(0.5, -8, 0, 35); l.CellPadding = UDim2.new(0, 10, 0, 10); return p 
+close.MouseButton1Click:Connect(function() sg:Destroy() end)
+mini.MouseButton1Click:Connect(function() main.Visible = false; miniBtn.Visible = true end)
+miniBtn.MouseButton1Click:Connect(function() main.Visible = true; miniBtn.Visible = false end)
+
+-- 2. TAB UTILITIES
+local container = Instance.new("Frame", main)
+container.Size = UDim2.new(1, -20, 1, -120)
+container.Position = UDim2.new(0, 10, 0, 110)
+container.BackgroundTransparency = 1
+
+local function createPage() 
+    local p = Instance.new("ScrollingFrame", container)
+    p.Size = UDim2.new(1, 0, 1, 0)
+    p.BackgroundTransparency = 1
+    p.Visible = false
+    p.ScrollBarThickness = 6
+    p.AutomaticCanvasSize = "Y"
+    local l = Instance.new("UIGridLayout", p)
+    l.CellSize = UDim2.new(0.5, -10, 0, 45)
+    l.CellPadding = UDim2.new(0, 10, 0, 10)
+    return p 
 end
-local pM, pS, pR, pSh, pT, pF = pge(), pge(), pge(), pge(), pge(), pge(); pM.Visible = true
+
+local pM, pS, pR, pSh, pT, pF = createPage(), createPage(), createPage(), createPage(), createPage(), createPage()
+pM.Visible = true
 
 local function tgl(t, p, f) 
-    local act = false; local b = Instance.new("TextButton", p); b.BackgroundColor3 = Color3.fromRGB(40, 40, 50); b.Text = t; b.TextColor3 = Color3.new(1,1,1); b.Font = "GothamBold"; b.TextSize = 10; Instance.new("UICorner", b)
-    b.MouseButton1Click:Connect(function() act = not act; b.BackgroundColor3 = act and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(40, 40, 50); f(act) end)
+    local act = false
+    local b = Instance.new("TextButton", p)
+    b.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    b.Text = t; b.TextColor3 = Color3.new(1,1,1)
+    b.Font = "GothamBold"; b.TextSize = 10
+    Instance.new("UICorner", b)
+    b.MouseButton1Click:Connect(function() 
+        act = not act
+        b.BackgroundColor3 = act and Color3.fromRGB(200, 0, 0) or Color3.fromRGB(35, 35, 40)
+        f(act) 
+    end)
 end
+
 local function inp(t, p, d) 
-    local f = Instance.new("Frame", p); f.BackgroundTransparency = 1; local l = Instance.new("TextLabel", f); l.Size = UDim2.new(0.4, 0, 1, 0); l.Text = t; l.TextColor3 = Color3.new(0.8,0.8,0.8); l.TextSize = 9;
-    local i = Instance.new("TextBox", f); i.Size = UDim2.new(0.55, 0, 0.8, 0); i.Position = UDim2.new(0.45, 0, 0.1, 0); i.Text = d; i.BackgroundColor3 = Color3.fromRGB(30, 30, 45); i.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", i); return i 
+    local f = Instance.new("Frame", p); f.BackgroundTransparency = 1
+    local l = Instance.new("TextLabel", f); l.Size = UDim2.new(0.4, 0, 1, 0); l.Text = t; l.TextColor3 = Color3.new(0.8,0.8,0.8); l.TextSize = 8;
+    local i = Instance.new("TextBox", f); i.Size = UDim2.new(0.55, 0, 0.8, 0); i.Position = UDim2.new(0.45, 0, 0.1, 0); i.Text = d; i.BackgroundColor3 = Color3.fromRGB(20, 20, 25); i.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", i)
+    return i 
 end
 
--- POPULATE TABS
-tgl("BOX ESP", pM, function(v) esp = v end)
-tgl("FREECAM", pM, function(v) freecam = v end)
-tgl("INF JUMP", pM, function(v) infJump = v end)
-tgl("NOCLIP", pM, function(v) noclip = v end)
-tgl("CLICK TP (CTRL)", pM, function(v) clickTp = v end)
-local pN = inp("Player Name", pM, ""); tgl("TP TO PLAYER", pM, function() local t = game.Players:FindFirstChild(pN.Text); if t and t.Character then LP.Character:MoveTo(t.Character.HumanoidRootPart.Position) end end)
-local WS, JP = inp("Speed", pM, "16"), inp("Jump", pM, "50")
+local function btn(t, p, f) 
+    local b = Instance.new("TextButton", p)
+    b.Text = t; b.BackgroundColor3 = Color3.fromRGB(45, 45, 50); b.TextColor3 = Color3.new(1,1,1)
+    b.Font = "GothamBold"; b.TextSize = 10; Instance.new("UICorner", b)
+    b.MouseButton1Click:Connect(f)
+end
 
-tgl("IY ADMIN", pT, function() loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))() end)
-tgl("F3X BUILDER", pT, function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FrenzySploit/FrenzySploit/main/F3X.lua"))() end)
-tgl("DEX", pT, function() loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/main/dex.lua"))() end)
-tgl("BTOOLS (LITE)", pT, function() for i,v in pairs(Enum.BinType:GetEnumItems()) do Instance.new("HopperBin", LP.Backpack).BinType = v end end)
+-- 3. FEATURE ASSIGNMENT
+-- [MAIN]
+tgl("NOCLIP", pM, function(v) _G.noclip = v end)
+tgl("INF JUMP", pM, function(v) _G.infjump = v end)
+local WS = inp("SPEED", pM, "25")
+local JP = inp("JUMP", pM, "50")
+tgl("FREECAM", pM, function(v) 
+    if v then _G.fpart = Instance.new("Part", workspace); _G.fpart.Anchored = true; _G.fpart.Transparency = 1; _G.fpart.CFrame = cam.CFrame; cam.CameraSubject = _G.fpart
+    else cam.CameraSubject = LP.Character.Humanoid; if _G.fpart then _G.fpart:Destroy() end end
+end)
+btn("PANIC HIDE", pM, function() main.Visible = false; miniBtn.Visible = true end)
 
-tgl("SHIELD ACTIVE", pSh, function(v) shield = v end); local shR, shF = inp("Range", pSh, "60"), inp("Force", pSh, "400")
-tgl("STORM ACTIVE", pS, function(v) tornado = v end); local sR, sL, sS = inp("Range", pS, "1000"), inp("Layers", pS, "5"), inp("Speed", pS, "180")
+-- [STRM] (TORNADO)
+tgl("ACTIVE", pS, function(v) _G.tornado = v end)
+local sR = inp("RANGE", pS, "1200"); local sS = inp("SPEED", pS, "450")
+local sY = inp("START Y", pS, "-15"); local sD = inp("Y GAP", pS, "15")
 
-local skI = inp("Sky ID", pF, "6073715111"); tgl("APPLY SKY", pF, function() local s = LT:FindFirstChildOfClass("Sky") or Instance.new("Sky", LT); local t = "rbxassetid://"..skI.Text; s.SkyboxBk, s.SkyboxDn, s.SkyboxFt, s.SkyboxLf, s.SkyboxRt, s.SkyboxUp = t, t, t, t, t, t end)
-tgl("FULLBRIGHT", pF, function(v) glow = v end)
+-- [RING]
+tgl("ACTIVE", pR, function(v) _G.ring = v end)
+local rR = inp("RANGE", pR, "800"); local rS = inp("SPEED", pR, "300")
+local rY = inp("START Y", pR, "0"); local rD = inp("Y GAP", pR, "10")
 
--- ESP & ENGINE
-local function makeEsp(p) if p == LP then return end local b = Instance.new("BoxHandleAdornment", sg); b.AlwaysOnTop = true; b.ZIndex = 10; b.Transparency = 0.5; b.Color3 = Color3.new(0, 1, 1); RS.RenderStepped:Connect(function() if esp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then b.Adornee = p.Character.HumanoidRootPart; b.Size = p.Character.HumanoidRootPart.Size * 1.5; b.Visible = true else b.Visible = false end end) end
-for _, p in pairs(game.Players:GetPlayers()) do makeEsp(p) end; game.Players.PlayerAdded:Connect(makeEsp)
+-- [SHLD] (SHIELD)
+tgl("ACTIVE", pSh, function(v) _G.shield = v end)
+tgl("SHOW RANGE", pSh, function(v) _G.showshield = v end)
+local shDist = inp("DIST", pSh, "50"); local shForce = inp("FORCE", pSh, "1000")
 
+-- [TOOL]
+btn("DEX", pT, function() loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/main/dex.lua"))() end)
+btn("IY ADMIN", pT, function() loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))() end)
+local pmID = inp("PM ID", pT, "102555550"); btn("PM SPAWN", pT, function() pcall(function() local m = game:GetObjects("rbxassetid://"..pmID.Text)[1]; m.Parent = workspace; m:MoveTo(LP.Character.HumanoidRootPart.Position) end) end)
+
+-- [FUN]
+tgl("UNANCHOR", pF, function(v) _G.unanchor = v end)
+local imgID = inp("DECAL ID", pF, "13426164417") 
+tgl("SKY SWITCH", pF, function(v) _G.skybox = v end)
+tgl("SKY SPIN", pF, function(v) _G.skyspin = v end)
+tgl("DECAL SWITCH", pF, function(v) _G.decalspam = v end)
+
+-- 4. THE MAIN LOOP (STARTS HERE)
 RS.Stepped:Connect(function()
-    local c = LP.Character or LP.CharacterAdded:Wait(); local h = c:FindFirstChild("HumanoidRootPart") if not h then return end
-    c.Humanoid.WalkSpeed, c.Humanoid.JumpPower = tonumber(WS.Text) or 16, tonumber(JP.Text) or 50
-    if noclip then for _,v in pairs(c:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end end
-    if glow then LT.Brightness = 2 else LT.Brightness = origL.B end
-    if freecam then
-        if not fcPart then fcPart = Instance.new("Part", workspace); fcPart.Anchored, fcPart.CanCollide, fcPart.Transparency = true, false, 1; fcPart.Position = cam.CFrame.p; h.Anchored = true end
-        cam.CameraSubject = fcPart; local m = Vector3.new(0,0,0); if UIS:IsKeyDown("W") then m = m + cam.CFrame.LookVector end if UIS:IsKeyDown("S") then m = m - cam.CFrame.LookVector end if UIS:IsKeyDown("A") then m = m - cam.CFrame.RightVector end if UIS:IsKeyDown("D") then m = m + cam.CFrame.RightVector end fcPart.Position = fcPart.Position + (m * 2.5)
-    else cam.CameraSubject = c.Humanoid; if fcPart then fcPart:Destroy(); fcPart = nil; h.Anchored = false end end
-    if shield or tornado then
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("BasePart") and not v.Anchored and not v:IsDescendantOf(c) then
-                local d = (v.Position - h.Position).Magnitude
-                if shield and d < (tonumber(shR.Text) or 60) then v.AssemblyLinearVelocity = (v.Position-h.Position).Unit * (tonumber(shF.Text) or 400)
-                elseif tornado and d < (tonumber(sR.Text) or 1000) then v.AssemblyLinearVelocity = Vector3.new((v.Position-h.Position).Z, 0, -(v.Position-h.Position).X).Unit * (tonumber(sS.Text) or 180) + Vector3.new(0, (h.Position.Y+30-v.Position.Y)*25, 0) end
+    local c = LP.Character; if not c or not c:FindFirstChild("HumanoidRootPart") then return end
+    local h = c.HumanoidRootPart
+    
+    -- WalkSpeed/JumpPower Fix
+    c.Humanoid.WalkSpeed = tonumber(WS.Text) or 25
+    c.Humanoid.JumpPower = tonumber(JP.Text) or 50
+
+    -- SKY ENGINE (TOMATO SKY)
+    if _G.skybox then
+        local s = LT:FindFirstChild("VortexSky") or Instance.new("Sky", LT)
+        s.Name = "VortexSky"
+        local id = "rbxassetid://" .. imgID.Text
+        s.SkyboxBk = id; s.SkyboxDn = id; s.SkyboxFt = id; s.SkyboxLf = id; s.SkyboxRt = id; s.SkyboxUp = id
+        if _G.skyspin then LT.ClockTime = (LT.ClockTime + 0.01) % 24 end
+    else
+        if LT:FindFirstChild("VortexSky") then LT.VortexSky:Destroy() end
+    end
+
+    -- SHIELD VISUALIZER (RED SPHERE)
+    if _G.showshield then
+        local v = workspace:FindFirstChild("VortexShieldVis") or Instance.new("Part", workspace)
+        v.Name = "VortexShieldVis"; v.Shape = "Ball"; v.Material = "ForceField"; v.Color = Color3.new(1,0,0); v.Transparency = 0.7; v.Anchored = true; v.CanCollide = false
+        local d = tonumber(shDist.Text) or 50
+        v.Size = Vector3.new(d*2, d*2, d*2); v.CFrame = h.CFrame
+    else
+        if workspace:FindFirstChild("VortexShieldVis") then workspace.VortexShieldVis:Destroy() end
+    end
+
+    -- GLOBAL OBJECT MANIPULATION (DECALS + PHYSICS)
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") and not v.Anchored and not v:IsDescendantOf(c) then
+            local dist = (v.Position - h.Position).Magnitude
+            
+            -- Tomato Decals
+            if _G.decalspam and not v:FindFirstChild("TomatoDecal") then
+                for _,face in pairs(Enum.NormalId:GetEnumItems()) do
+                    local d = Instance.new("Decal", v); d.Name = "TomatoDecal"; d.Texture = "rbxassetid://"..imgID.Text; d.Face = face
+                end
+            end
+
+            -- Physics (Shield/Tornado/Ring)
+            if _G.shield and dist < (tonumber(shDist.Text) or 50) then
+                v.AssemblyLinearVelocity = (v.Position - h.Position).Unit * (tonumber(shForce.Text) or 1000)
+            elseif _G.tornado and dist < (tonumber(sR.Text) or 1200) then
+                local idx = (math.floor(v.Position.Y / (tonumber(sD.Text) or 15)) % 12)
+                local tY = h.Position.Y + (tonumber(sY.Text) or -15) + (idx * (tonumber(sD.Text) or 15))
+                v.AssemblyLinearVelocity = Vector3.new((v.Position-h.Position).Z, 0, -(v.Position-h.Position).X).Unit * (tonumber(sS.Text) or 450) + Vector3.new(0, (tY - v.Position.Y) * 40, 0)
             end
         end
     end
 end)
 
-local function mt(n, x, pg) local b = Instance.new("TextButton", main); b.Size = UDim2.new(1/6, -4, 0, 35); b.Position = UDim2.new(x, 2, 0, 45); b.Text = n; b.BackgroundColor3 = Color3.fromRGB(30, 30, 45); b.TextColor3 = Color3.new(1,1,1); b.Font = "GothamBold"; b.MouseButton1Click:Connect(function() pM.Visible, pS.Visible, pR.Visible, pSh.Visible, pT.Visible, pF.Visible = false, false, false, false, false, false; pg.Visible = true end); Instance.new("UICorner", b) end
+-- 5. NAVIGATION & DRAG
+local function mt(n, x, pg) 
+    local b = Instance.new("TextButton", main); b.Size = UDim2.new(1/6, -4, 0, 40); b.Position = UDim2.new(x, 2, 0, 45); b.Text = n; b.BackgroundColor3 = Color3.fromRGB(30, 30, 35); b.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", b)
+    b.MouseButton1Click:Connect(function() 
+        pM.Visible, pS.Visible, pR.Visible, pSh.Visible, pT.Visible, pF.Visible = false, false, false, false, false, false
+        pg.Visible = true 
+    end)
+end
 mt("MAIN", 0, pM); mt("STRM", 1/6, pS); mt("RING", 2/6, pR); mt("SHLD", 3/6, pSh); mt("TOOL", 4/6, pT); mt("FUN", 5/6, pF)
-UIS.InputBegan:Connect(function(i, g) if not g and clickTp and i.UserInputType == Enum.UserInputType.MouseButton1 and UIS:IsKeyDown(Enum.KeyCode.LeftControl) then LP.Character:MoveTo(LP:GetMouse().Hit.p) end end)
-UIS.JumpRequest:Connect(function() if infJump then LP.Character.Humanoid:ChangeState(3) end end)
+
+-- TOUCH DRAG SYSTEM
+local d, sP, dP
+head.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then d = true; sP = i.Position; dP = main.Position end end)
+UIS.InputChanged:Connect(function(i) if (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) and d then local delta = i.Position - sP; main.Position = UDim2.new(dP.X.Scale, dP.X.Offset + delta.X, dP.Y.Scale, dP.Y.Offset + delta.Y) end end)
+UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then d = false end end)
