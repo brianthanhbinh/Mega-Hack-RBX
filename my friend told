@@ -1,0 +1,89 @@
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+local Main = Instance.new("Frame", ScreenGui)
+-- [[ UI SIZE CODE BELOW: Width 220, Height 180 ]] --
+Main.Size, Main.Position = UDim2.new(0, 220, 0, 180), UDim2.new(0.5, -110, 0.5, -90)
+Main.BackgroundColor3, Main.BorderSizePixel = Color3.fromRGB(10, 10, 10), 2
+Main.BorderColor3, Main.Active, Main.Draggable = Color3.fromRGB(0, 255, 150), true, true
+
+local SizeIn = Instance.new("TextBox", Main)
+SizeIn.Size, SizeIn.Position = UDim2.new(0.9, 0, 0, 35), UDim2.new(0.05, 0, 0, 10)
+SizeIn.PlaceholderText, SizeIn.BackgroundColor3, SizeIn.TextColor3 = "Sphere Size (100)", Color3.fromRGB(30,30,30), Color3.new(1,1,1)
+
+local Toggle = Instance.new("TextButton", Main)
+Toggle.Size, Toggle.Position = UDim2.new(0.9, 0, 0, 45), UDim2.new(0.05, 0, 0, 55)
+Toggle.Text, Toggle.BackgroundColor3, Toggle.TextColor3 = "Domain Expansion: NO", Color3.fromRGB(50,50,50), Color3.new(1,1,1)
+
+local Close = Instance.new("TextButton", Main)
+Close.Size, Close.Position = UDim2.new(0.9, 0, 0, 35), UDim2.new(0.05, 0, 0, 110)
+Close.Text, Close.BackgroundColor3 = "CLOSE", Color3.fromRGB(150, 0, 0)
+
+-- [[ LOGIC ]] --
+local active, sphere, originalPos = false, nil, nil
+local lp, rs = game.Players.LocalPlayer, game:GetService("RunService")
+
+Toggle.MouseButton1Click:Connect(function()
+    active = not active
+    Toggle.Text = "Domain Expansion: " .. (active and "YES" or "NO")
+    Toggle.BackgroundColor3 = active and Color3.fromRGB(120, 0, 255) or Color3.fromRGB(50, 50, 50)
+    
+    local char = lp.Character
+    local hrp, hum = char:FindFirstChild("HumanoidRootPart"), char:FindFirstChildOfClass("Humanoid")
+    
+    if active and hrp then
+        local size = tonumber(SizeIn.Text) or 100
+        originalPos = hrp.Position
+        sphere = Instance.new("Part", workspace)
+        sphere.Shape, sphere.Size, sphere.Position = "Ball", Vector3.new(size,size,size), originalPos
+        sphere.Anchored, sphere.CanCollide, sphere.Transparency, sphere.Color = true, false, 0.4, Color3.new(0,0,0)
+
+        task.spawn(function()
+            -- [[ THE HKILL LOGIC WITH DIAGONAL EVASION START ]] --
+            while active do
+                local targetFound = false
+                hum.Health = 100 -- Fast Heal
+                for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end -- Noclip
+                
+                for _, p in pairs(game.Players:GetPlayers()) do
+                    if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        local tHRP, tHum = p.Character.HumanoidRootPart, p.Character.Humanoid
+                        local dist = (tHRP.Position - sphere.Position).Magnitude
+                        
+                        if dist < (size / 2) and tHum.Health > 0 then
+                            targetFound = true
+                            
+                            -- [[ DIAGONAL VIBRATION ]] --
+                            for i = 1, 10 do
+                                if not active then break end
+                                -- Dash 1: Up/Right/Forward
+                                hrp.CFrame = tHRP.CFrame * CFrame.new(2, 3, 1.5) 
+                                rs.RenderStepped:Wait()
+                                -- Dash 2: Down/Left/Backward
+                                hrp.CFrame = tHRP.CFrame * CFrame.new(-2, -1, -1.5)
+                                rs.RenderStepped:Wait()
+                            end
+                            
+                            local tool = char:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                        end
+                    end
+                end
+                
+                if not targetFound and hrp then
+                    hrp.CFrame = CFrame.new(originalPos)
+                end
+                task.wait(0.05)
+            end
+            -- [[ THE HKILL LOGIC WITH DIAGONAL EVASION END ]] --
+            if sphere then sphere:Destroy() end
+        end)
+    else 
+        active = false 
+        if sphere then sphere:Destroy() end 
+    end
+end)
+
+Close.MouseButton1Click:Connect(function() 
+    active = false 
+    if sphere then sphere:Destroy() end 
+    ScreenGui:Destroy() 
+end)
